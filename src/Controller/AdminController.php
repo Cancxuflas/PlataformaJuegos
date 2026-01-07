@@ -142,6 +142,34 @@ final class AdminController extends AbstractController
                     $error = 'Juego no encontrado.';
                 }
             }
+
+            // ===== EDITAR JUEGO =====
+            if ($action === 'edit_game') {
+                $gameId = (int) $request->request->get('game_id');
+                $nombre = trim((string) $request->request->get('game_nombre'));
+                $descripcion = trim((string) $request->request->get('game_description'));
+                $aplicacionId = (int) $request->request->get('aplicacion_id');
+
+                if (!$nombre) {
+                    $error = 'El nombre del juego es obligatorio.';
+                } else {
+                    $juego = $juegoRepository->find($gameId);
+                    if (!$juego) {
+                        $error = 'Juego no encontrado.';
+                    } else {
+                        $aplicacion = $aplicacionRepository->find($aplicacionId);
+                        if (!$aplicacion) {
+                            $error = 'Aplicación no encontrada.';
+                        } else {
+                            $juego->setNombre($nombre);
+                            $juego->setDescription($descripcion ?: null);
+                            $juego->setAplicacion($aplicacion);
+                            $em->flush();
+                            $success = 'Juego actualizado correctamente.';
+                        }
+                    }
+                }
+            }
         }
 
         $users = $userRepository->findAll();
