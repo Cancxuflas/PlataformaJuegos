@@ -3,7 +3,6 @@
 namespace App\Controller;
 
 use App\Entity\User;
-use App\Entity\Juego;
 use App\Repository\UserRepository;
 use App\Repository\JuegoRepository;
 use App\Repository\AplicacionRepository;
@@ -37,16 +36,12 @@ final class AdminController extends AbstractController
 
         if ($request->isMethod('POST')) {
             $action = $request->request->get('action');
-            $type = $request->request->get('type', 'user');
-            $tokenId = $type === 'juego' ? 'admin_games' : 'admin_users';
-            $token = new CsrfToken($tokenId, $request->request->get('_token'));
-            
+            $token = new CsrfToken('admin_users', $request->request->get('_token'));
             if (!$csrfTokenManager->isTokenValid($token)) {
                 throw new AccessDeniedException('CSRF token inválido');
             }
 
-            // USUARIOS
-            if ($type === 'user' && $action === 'create') {
+            if ($action === 'create') {
                 $email = trim((string) $request->request->get('email'));
                 $nombre = trim((string) $request->request->get('nombre'));
                 $password = (string) $request->request->get('password');
@@ -73,7 +68,7 @@ final class AdminController extends AbstractController
                 }
             }
 
-            if ($type === 'user' && $action === 'delete') {
+            if ($action === 'delete') {
                 $userId = (int) $request->request->get('user_id');
                 if ($userId === $this->getUser()?->getId()) {
                     $error = 'No puedes eliminar tu propio usuario mientras estás conectado.';
@@ -152,6 +147,93 @@ final class AdminController extends AbstractController
                     $tab = 'games';
                 }
             }
+
+            // ===== JUEGOS =====
+            if ($action === 'create_game') {
+                $nombre = trim((string) $request->request->get('game_nombre'));
+                $descripcion = trim((string) $request->request->get('game_description'));
+                $aplicacionId = (int) $request->request->get('aplicacion_id');
+
+                if (!$nombre) {
+                    $error = 'El nombre del juego es obligatorio.';
+                } else {
+                    // Generar token único
+                    $tokenJuego = bin2hex(random_bytes(16));
+
+                    // Buscar o usar primera aplicación
+                    $aplicacion = $aplicacionRepository->find($aplicacionId);
+                    if (!$aplicacion) {
+                        $aplicacion = $aplicacionRepository->findOneBy(['estado' => true]);
+                    }
+
+                    if (!$aplicacion) {
+                        $error = 'No hay aplicaciones disponibles.';
+                    } else {
+                        $juego = new Juego();
+                        $juego->setNombre($nombre);
+                        $juego->setDescription($descripcion ?: null);
+                        $juego->setTokenJuego($tokenJuego);
+                        $juego->setEstado(true);
+                        $juego->setAplicacion($aplicacion);
+
+                        $em->persist($juego);
+                        $em->flush();
+                        $success = 'Juego creado correctamente.';
+                    }
+                }
+            }
+
+            if ($action === 'delete_game') {
+                $gameId = (int) $request->request->get('game_id');
+                $juego = $juegoRepository->find($gameId);
+                if ($juego) {
+                    $em->remove($juego);
+                    $em->flush();
+                    $success = 'Juego eliminado.';
+                } else {
+                    $error = 'Juego no encontrado.';
+                }
+            }
+
+            if ($action === 'toggle_game') {
+                $gameId = (int) $request->request->get('game_id');
+                $juego = $juegoRepository->find($gameId);
+                if ($juego) {
+                    $juego->setEstado(!$juego->isEstado());
+                    $em->flush();
+                    $success = 'Estado del juego actualizado.';
+                } else {
+                    $error = 'Juego no encontrado.';
+                }
+            }
+
+            // ===== EDITAR JUEGO =====
+            if ($action === 'edit_game') {
+                $gameId = (int) $request->request->get('game_id');
+                $nombre = trim((string) $request->request->get('game_nombre'));
+                $descripcion = trim((string) $request->request->get('game_description'));
+                $aplicacionId = (int) $request->request->get('aplicacion_id');
+
+                if (!$nombre) {
+                    $error = 'El nombre del juego es obligatorio.';
+                } else {
+                    $juego = $juegoRepository->find($gameId);
+                    if (!$juego) {
+                        $error = 'Juego no encontrado.';
+                    } else {
+                        $aplicacion = $aplicacionRepository->find($aplicacionId);
+                        if (!$aplicacion) {
+                            $error = 'Aplicación no encontrada.';
+                        } else {
+                            $juego->setNombre($nombre);
+                            $juego->setDescription($descripcion ?: null);
+                            $juego->setAplicacion($aplicacion);
+                            $em->flush();
+                            $success = 'Juego actualizado correctamente.';
+                        }
+                    }
+                }
+            }
         }
 
         $users = $userRepository->findAll();
@@ -167,4 +249,4 @@ final class AdminController extends AbstractController
             'tab' => $tab,
         ]);
     }
-}
+} //jajsajsja
