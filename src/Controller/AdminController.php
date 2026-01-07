@@ -157,3 +157,4 @@ final class AdminController extends AbstractController
         ]);
     }
 }
+// menu administrador con gestion de usuarios y juegos/aplicaciones acabado
