@@ -19,10 +19,36 @@
         padding: 25px;
         box-shadow: 0 20px 60px rgba(0,0,0,0.35);
         width: 100%;
-        max-width: 1100px;
+        max-width: 1200px;
     }
     h1 { color: #2c5364; margin-bottom: 5px; }
     .subtitle { color: #666; margin-bottom: 20px; }
+
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .tab-btn {
+        padding: 12px 20px;
+        border: none;
+        background: transparent;
+        color: #666;
+        cursor: pointer;
+        font-weight: 600;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+        color: #2c5364;
+        border-bottom-color: #2c5364;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
 
     .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
     @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
@@ -38,107 +64,260 @@
     .tag.admin { background: #ffd166; color: #5c3d00; }
     .tag.user { background: #d4edda; color: #155724; }
     .tag.off { background: #f8d7da; color: #721c24; }
+    .tag.active { background: #d4edda; color: #155724; }
+    .tag.inactive { background: #f8d7da; color: #721c24; }
 
     .btn { border: none; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; }
     .btn.danger { background: #e74c3c; color: #fff; }
     .btn.primary { background: #2c5364; color: #fff; }
-    .btn.danger:hover, .btn.primary:hover { opacity: 0.9; }
+    .btn.secondary { background: #95a5a6; color: #fff; }
+    .btn.danger:hover, .btn.primary:hover, .btn.secondary:hover { opacity: 0.9; }
 
     .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-    input[type="text"], input[type="email"], input[type="password"] { padding: 10px; border-radius: 10px; border: 1px solid #ced4da; }
+    input[type="text"], input[type="email"], input[type="password"], select, textarea { 
+        padding: 10px; 
+        border-radius: 10px; 
+        border: 1px solid #ced4da; 
+        font-family: inherit;
+    }
+    textarea { resize: vertical; min-height: 80px; }
     label { font-weight: 600; color: #2c5364; }
     .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
     .alert { padding: 12px 14px; border-radius: 10px; margin-bottom: 12px; font-weight: 600; }
     .alert.error { background: #f8d7da; color: #721c24; }
     .alert.success { background: #d4edda; color: #155724; }
+
+    .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
 </style>
 
 <div class="panel">
     <h1>Panel de Administración</h1>
-    <p class="subtitle">Gestiona usuarios y accesos</p>
+    <p class="subtitle">Gestiona usuarios y juegos</p>
 
     {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
     {% if success %}<div class="alert success">{{ success }}</div>{% endif %}
 
-    <div class="grid">
-        <div class="card">
-            <h3>Usuarios</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Email</th>
-                        <th>Roles</th>
-                        <th>Estado</th>
-                        <th>Registro</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for user in users %}
-                    <tr>
-                        <td>{{ user.nombre }}</td>
-                        <td>{{ user.email }}</td>
-                        <td>
-                            {% if 'ROLE_ADMIN' in user.roles %}
-                                <span class="tag admin">Admin</span>
-                            {% else %}
-                                <span class="tag user">Usuario</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if user.estado %}
-                                <span class="tag user">Activo</span>
-                            {% else %}
-                                <span class="tag off">Inactivo</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ user.fechaRegistro ? user.fechaRegistro|date('Y-m-d H:i') : '' }}</td>
-                        <td>
-                            {% if app.user and user.id != app.user.id %}
-                            <form method="post" style="display:inline" onsubmit="return confirm('¿Eliminar usuario?');">
-                                <input type="hidden" name="_token" value="{{ csrf_token('admin_users') }}">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="user_id" value="{{ user.id }}">
-                                <button class="btn danger" type="submit">Eliminar</button>
-                            </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="6">Sin usuarios</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="tabs">
+        <button class="tab-btn {% if tab == 'users' %}active{% endif %}" onclick="switchTab('users')">Usuarios</button>
+        <button class="tab-btn {% if tab == 'games' %}active{% endif %}" onclick="switchTab('games')">Juegos</button>
+    </div>
 
-        <div class="card">
-            <h3>Crear usuario</h3>
-            <form method="post">
-                <input type="hidden" name="_token" value="{{ csrf_token('admin_users') }}">
-                <input type="hidden" name="action" value="create">
-                <div class="form-row">
+    <!-- TAB USUARIOS -->
+    <div id="users-tab" class="tab-content {% if tab == 'users' %}active{% endif %}">
+        <div class="grid">
+            <div class="card">
+                <h3>Usuarios</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <th>Estado</th>
+                            <th>Registro</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for user in users %}
+                        <tr>
+                            <td>{{ user.nombre }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% if 'ROLE_ADMIN' in user.roles %}
+                                    <span class="tag admin">Admin</span>
+                                {% else %}
+                                    <span class="tag user">Usuario</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.estado %}
+                                    <span class="tag user">Activo</span>
+                                {% else %}
+                                    <span class="tag off">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.fechaRegistro ? user.fechaRegistro|date('Y-m-d H:i') : '' }}</td>
+                            <td>
+                                {% if app.user and user.id != app.user.id %}
+                                <form method="post" style="display:inline" onsubmit="return confirm('¿Eliminar usuario?');">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('admin_users') }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="type" value="user">
+                                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                                    <button class="btn danger" type="submit">Eliminar</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6">Sin usuarios</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Crear usuario</h3>
+                <form method="post">
+                    <input type="hidden" name="_token" value="{{ csrf_token('admin_users') }}">
+                    <input type="hidden" name="action" value="create">
+                    <input type="hidden" name="type" value="user">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" name="nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" name="email" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Contraseña</label>
+                            <input type="password" name="password" minlength="4" required>
+                        </div>
+                        <div class="form-group" style="align-items:center; justify-content: center;">
+                            <label><input type="checkbox" name="is_admin" value="1"> Es administrador</label>
+                        </div>
+                    </div>
+                    <button class="btn primary" type="submit">Crear</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB JUEGOS -->
+    <div id="games-tab" class="tab-content {% if tab == 'games' %}active{% endif %}">
+        <div class="grid">
+            <div class="card">
+                <h3>Juegos</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Token</th>
+                            <th>Aplicación</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for juego in juegos %}
+                        <tr>
+                            <td>{{ juego.nombre }}</td>
+                            <td><code style="font-size: 0.85em; background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">{{ juego.tokenJuego }}</code></td>
+                            <td>{{ juego.aplicacion.nombre ?? 'N/A' }}</td>
+                            <td>
+                                {% if juego.estado %}
+                                    <span class="tag active">Activo</span>
+                                {% else %}
+                                    <span class="tag inactive">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="button-group">
+                                    <button class="btn secondary" onclick="editGame({{ juego.id }}, '{{ juego.nombre|escape('js') }}', '{{ juego.description|default('')|escape('js') }}', {{ juego.estado ? 'true' : 'false' }})">Editar</button>
+                                    <form method="post" style="display:inline" onsubmit="return confirm('¿Eliminar juego?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('admin_games') }}">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="type" value="juego">
+                                        <input type="hidden" name="juego_id" value="{{ juego.id }}">
+                                        <button class="btn danger" type="submit">Eliminar</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5">Sin juegos</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3 id="form-title">Crear juego</h3>
+                <form method="post" id="game-form">
+                    <input type="hidden" name="_token" value="{{ csrf_token('admin_games') }}">
+                    <input type="hidden" name="type" value="juego">
+                    <input type="hidden" name="action" id="action-field" value="create">
+                    <input type="hidden" name="juego_id" id="juego_id" value="">
+
                     <div class="form-group">
-                        <label>Nombre</label>
-                        <input type="text" name="nombre" required>
+                        <label>Aplicación</label>
+                        <select name="aplicacion_id" id="aplicacion_id" required>
+                            <option value="">Selecciona una aplicación</option>
+                            {% for app in aplicaciones %}
+                                <option value="{{ app.id }}">{{ app.nombre }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
+
                     <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" name="email" required>
+                        <label>Nombre del juego</label>
+                        <input type="text" name="nombre_juego" id="nombre_juego" required>
                     </div>
-                </div>
-                <div class="form-row">
+
                     <div class="form-group">
-                        <label>Contraseña</label>
-                        <input type="password" name="password" minlength="4" required>
+                        <label>Token del juego</label>
+                        <input type="text" name="token_juego" id="token_juego" required placeholder="ej: game_001">
                     </div>
-                    <div class="form-group" style="align-items:center;">
-                        <label><input type="checkbox" name="is_admin" value="1"> Es administrador</label>
+
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea name="descripcion" id="descripcion"></textarea>
                     </div>
-                </div>
-                <button class="btn primary" type="submit">Crear</button>
-            </form>
+
+                    <div class="form-group" style="display: none;" id="estado-group">
+                        <label><input type="checkbox" name="estado" id="estado" value="1"> Juego activo</label>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn primary" type="submit" id="submit-btn">Crear</button>
+                        <button class="btn secondary" type="button" id="cancel-btn" style="display: none;" onclick="resetForm()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tab + '-tab').classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function editGame(id, nombre, descripcion, estado) {
+        document.getElementById('form-title').textContent = 'Editar juego';
+        document.getElementById('action-field').value = 'edit';
+        document.getElementById('juego_id').value = id;
+        document.getElementById('nombre_juego').value = nombre;
+        document.getElementById('descripcion').value = descripcion;
+        document.getElementById('estado').checked = estado;
+        document.getElementById('estado-group').style.display = 'block';
+        document.getElementById('aplicacion_id').disabled = true;
+        document.getElementById('token_juego').disabled = true;
+        document.getElementById('submit-btn').textContent = 'Guardar cambios';
+        document.getElementById('cancel-btn').style.display = 'inline-block';
+        
+        // Scroll hacia el formulario
+        document.getElementById('game-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetForm() {
+        document.getElementById('form-title').textContent = 'Crear juego';
+        document.getElementById('action-field').value = 'create';
+        document.getElementById('juego_id').value = '';
+        document.getElementById('game-form').reset();
+        document.getElementById('estado-group').style.display = 'none';
+        document.getElementById('aplicacion_id').disabled = false;
+        document.getElementById('token_juego').disabled = false;
+        document.getElementById('submit-btn').textContent = 'Crear';
+        document.getElementById('cancel-btn').style.display = 'none';
+    }
+</script>
 {% endblock %}
